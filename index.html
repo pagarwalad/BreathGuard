@@ -1,0 +1,1105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#060d1a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>BreathGuard</title>
+<link rel="manifest" href="manifest.json">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-deep:    #060d1a;
+    --bg-card:    #0c1828;
+    --bg-lift:    #111f33;
+    --teal:       #00d4c8;
+    --teal-dim:   #00a89e;
+    --teal-glow:  rgba(0,212,200,0.18);
+    --amber:      #ffb340;
+    --red:        #ff4d6a;
+    --red-glow:   rgba(255,77,106,0.22);
+    --green:      #2ddc8a;
+    --text-hi:    #e8f4f4;
+    --text-mid:   #7a9eb5;
+    --text-lo:    #3a5570;
+    --mono:       'Space Mono', monospace;
+    --sans:       'DM Sans', sans-serif;
+    --r:          14px;
+    --r-sm:       8px;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    height: 100%;
+    background: var(--bg-deep);
+    color: var(--text-hi);
+    font-family: var(--sans);
+    overflow-x: hidden;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background: repeating-linear-gradient(
+      0deg, transparent, transparent 3px,
+      rgba(0,212,200,0.012) 3px, rgba(0,212,200,0.012) 4px
+    );
+    pointer-events: none;
+    z-index: 999;
+  }
+
+  #app {
+    display: flex;
+    flex-direction: column;
+    min-height: 100dvh;
+    max-width: 430px;
+    margin: 0 auto;
+    padding: 0 0 env(safe-area-inset-bottom);
+  }
+
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 52px 20px 16px;
+  }
+  .logo { display: flex; align-items: center; gap: 10px; }
+  .logo-icon {
+    width: 36px; height: 36px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, var(--teal), #0096c7);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+    box-shadow: 0 0 16px rgba(0,212,200,0.4);
+  }
+  .logo-text { font-family: var(--mono); font-size: 18px; font-weight: 700; color: var(--text-hi); letter-spacing: -0.5px; }
+  .logo-sub { font-size: 10px; color: var(--teal); letter-spacing: 2px; text-transform: uppercase; font-weight: 500; display: block; margin-top: -2px; }
+  .status-pill {
+    display: flex; align-items: center; gap: 6px;
+    padding: 6px 12px; border-radius: 99px;
+    background: var(--bg-card); border: 1px solid var(--bg-lift);
+    font-size: 12px; font-weight: 500; color: var(--text-mid);
+    transition: all 0.3s;
+  }
+  .status-pill.connected { border-color: var(--teal-dim); color: var(--teal); }
+  .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-lo); transition: all 0.3s; }
+  .status-pill.connected .status-dot {
+    background: var(--teal); box-shadow: 0 0 6px var(--teal);
+    animation: pulse-dot 2s infinite;
+  }
+  @keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+  .scroll-body {
+    flex: 1; overflow-y: auto; overflow-x: hidden;
+    padding: 0 16px 24px;
+    display: flex; flex-direction: column; gap: 14px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .alert-banner {
+    border-radius: var(--r); padding: 14px 18px;
+    display: flex; align-items: center; gap: 12px;
+    background: var(--bg-card); border: 1.5px solid var(--bg-lift);
+    transition: all 0.4s cubic-bezier(0.34,1.56,0.64,1);
+    overflow: hidden;
+  }
+  .alert-banner.apnea {
+    background: rgba(255,77,106,0.08); border-color: var(--red);
+    animation: alert-pulse 1.2s infinite;
+  }
+  @keyframes alert-pulse { 0%, 100% { box-shadow: 0 0 0 0 var(--red-glow); } 50% { box-shadow: 0 0 0 12px transparent; } }
+  .alert-banner.normal { background: rgba(45,220,138,0.06); border-color: rgba(45,220,138,0.3); }
+  .alert-icon { font-size: 24px; flex-shrink: 0; line-height: 1; }
+  .alert-content { flex: 1; }
+  .alert-title { font-weight: 600; font-size: 14px; color: var(--text-hi); }
+  .alert-sub { font-size: 12px; color: var(--text-mid); margin-top: 2px; }
+  .alert-banner.apnea .alert-title { color: var(--red); }
+  .alert-banner.normal .alert-title { color: var(--green); }
+
+  .metric-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .metric-card {
+    background: var(--bg-card); border: 1px solid var(--bg-lift);
+    border-radius: var(--r); padding: 16px;
+    display: flex; flex-direction: column; gap: 6px;
+    position: relative; overflow: hidden; transition: border-color 0.3s;
+  }
+  .metric-card::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0;
+    height: 2px; background: var(--teal); opacity: 0.5; border-radius: 2px 2px 0 0;
+  }
+  .metric-card.warn::before { background: var(--amber); }
+  .metric-card.danger::before { background: var(--red); }
+  .metric-label { font-size: 10px; font-weight: 500; letter-spacing: 1.5px; text-transform: uppercase; color: var(--text-mid); }
+  .metric-value { font-family: var(--mono); font-size: 34px; font-weight: 700; color: var(--text-hi); line-height: 1; letter-spacing: -1px; }
+  .metric-value.danger { color: var(--red); }
+  .metric-unit { font-family: var(--mono); font-size: 11px; color: var(--text-mid); }
+  .metric-badge {
+    position: absolute; top: 12px; right: 12px;
+    font-size: 10px; padding: 2px 7px; border-radius: 99px; font-weight: 600; letter-spacing: 0.5px;
+  }
+  .badge-normal { background: rgba(45,220,138,0.15); color: var(--green); }
+  .badge-warn   { background: rgba(255,179,64,0.15);  color: var(--amber); }
+  .badge-danger { background: rgba(255,77,106,0.18);  color: var(--red); }
+
+  .wave-card {
+    background: var(--bg-card); border: 1px solid var(--bg-lift);
+    border-radius: var(--r); padding: 16px; overflow: hidden;
+  }
+  .wave-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+  .wave-title { font-size: 11px; font-weight: 500; letter-spacing: 1.5px; text-transform: uppercase; color: var(--text-mid); }
+  .wave-scale { font-family: var(--mono); font-size: 10px; color: var(--text-lo); }
+  .wave-canvas-wrap { position: relative; height: 110px; }
+  canvas#waveCanvas { width: 100%; height: 100%; border-radius: var(--r-sm); }
+
+  .stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .stat-cell { background: var(--bg-card); border: 1px solid var(--bg-lift); border-radius: var(--r); padding: 12px; text-align: center; }
+  .stat-val { font-family: var(--mono); font-size: 20px; font-weight: 700; color: var(--teal); }
+  .stat-lbl { font-size: 10px; color: var(--text-mid); margin-top: 3px; letter-spacing: 0.8px; text-transform: uppercase; }
+
+  .connect-panel { background: var(--bg-card); border: 1px solid var(--bg-lift); border-radius: var(--r); padding: 20px; }
+  .connect-panel h3 { font-size: 14px; font-weight: 600; margin-bottom: 14px; color: var(--text-hi); }
+  .group-select-row { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+  .group-select-row label { font-size: 12px; color: var(--text-mid); font-weight: 500; white-space: nowrap; }
+  select, input[type=number], input[type=text] {
+    flex: 1; background: var(--bg-lift); border: 1px solid var(--text-lo);
+    border-radius: var(--r-sm); color: var(--text-hi); padding: 9px 12px;
+    font-family: var(--mono); font-size: 14px; outline: none;
+    -webkit-appearance: none; transition: border-color 0.2s;
+  }
+  select:focus, input:focus { border-color: var(--teal); }
+
+  .btn {
+    width: 100%; padding: 14px; border-radius: var(--r); border: none;
+    font-family: var(--sans); font-size: 15px; font-weight: 600;
+    cursor: pointer; transition: all 0.2s; letter-spacing: 0.2px;
+  }
+  .btn:active { transform: scale(0.97); }
+  .btn-primary {
+    background: linear-gradient(135deg, var(--teal), #0097a7); color: #001a1a;
+    box-shadow: 0 4px 20px rgba(0,212,200,0.3);
+  }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-danger { background: rgba(255,77,106,0.12); color: var(--red); border: 1.5px solid rgba(255,77,106,0.35); }
+  .btn-sm { width: auto; padding: 8px 16px; font-size: 13px; border-radius: var(--r-sm); }
+
+  .log-card { background: var(--bg-card); border: 1px solid var(--bg-lift); border-radius: var(--r); overflow: hidden; }
+  .log-header { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-bottom: 1px solid var(--bg-lift); }
+  .log-title { font-size: 11px; font-weight: 500; letter-spacing: 1.5px; text-transform: uppercase; color: var(--text-mid); }
+  #logBox {
+    height: 130px; overflow-y: auto; padding: 10px 14px;
+    font-family: var(--mono); font-size: 11px; color: var(--text-mid);
+    line-height: 1.7; background: var(--bg-deep);
+  }
+  #logBox .log-ok   { color: var(--teal); }
+  #logBox .log-warn { color: var(--amber); }
+  #logBox .log-err  { color: var(--red); }
+  #logBox .log-info { color: var(--text-mid); }
+
+  .bottom-bar {
+    display: flex; gap: 10px; padding: 12px 16px;
+    border-top: 1px solid var(--bg-lift); background: var(--bg-deep);
+    position: sticky; bottom: 0;
+  }
+
+  .section-label { font-size: 10px; font-weight: 500; letter-spacing: 2px; text-transform: uppercase; color: var(--text-lo); padding: 4px 0 0; }
+
+  .spinner {
+    display: inline-block; width: 14px; height: 14px;
+    border: 2px solid transparent; border-top-color: currentColor;
+    border-radius: 50%; animation: spin 0.7s linear infinite;
+    vertical-align: middle; margin-right: 6px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .snore-bar-wrap { margin-top: 8px; }
+  .snore-bar-bg { height: 6px; border-radius: 3px; background: var(--bg-lift); overflow: hidden; }
+  .snore-bar-fill { height: 100%; border-radius: 3px; background: linear-gradient(90deg, var(--teal), var(--amber)); transition: width 0.3s ease; width: 0%; }
+
+  .apnea-timer-wrap { display: flex; align-items: center; justify-content: space-between; margin-top: 6px; }
+  .apnea-bar-bg { flex: 1; height: 4px; border-radius: 2px; background: var(--bg-lift); margin-right: 10px; overflow: hidden; }
+  .apnea-bar-fill { height: 100%; border-radius: 2px; background: var(--teal); transition: width 0.5s linear, background 0.3s; width: 0%; }
+  .apnea-bar-fill.warning { background: var(--amber); }
+  .apnea-bar-fill.danger  { background: var(--red); }
+  .apnea-timer-val { font-family: var(--mono); font-size: 11px; color: var(--text-mid); min-width: 36px; text-align: right; }
+
+  .empty-wave {
+    display: flex; align-items: center; justify-content: center;
+    height: 100%; flex-direction: column; gap: 6px;
+    color: var(--text-lo); font-size: 12px;
+  }
+  .empty-wave svg { opacity: 0.3; }
+
+  /* Notification permission */
+  .notif-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 14px; margin-bottom: 14px;
+    background: var(--bg-lift); border-radius: var(--r-sm);
+  }
+  .notif-row span { font-size: 12px; color: var(--text-mid); }
+  .notif-status { font-family: var(--mono); font-size: 11px; padding: 4px 10px; border-radius: 99px; }
+  .notif-granted { background: rgba(45,220,138,0.15); color: var(--green); }
+  .notif-denied  { background: rgba(255,77,106,0.15); color: var(--red); }
+  .notif-default { background: rgba(0,212,200,0.15); color: var(--teal); cursor: pointer; }
+
+  /* Wake lock indicator */
+  .wakelock-badge {
+    font-size: 10px; color: var(--text-lo);
+    text-align: center; padding: 4px 0;
+  }
+
+  /* Position card */
+  .position-card {
+    background: var(--bg-card); border: 1px solid var(--bg-lift);
+    border-radius: var(--r); padding: 14px 18px;
+    display: flex; align-items: center; gap: 14px;
+  }
+  .position-icon { font-size: 28px; }
+  .position-label { font-size: 10px; font-weight: 500; letter-spacing: 1.5px; text-transform: uppercase; color: var(--text-mid); }
+  .position-value { font-family: var(--mono); font-size: 16px; font-weight: 700; color: var(--teal); }
+
+  #monitorSection {
+    display: none;
+    flex-direction: column;
+    gap: 14px;
+    width: 100%;
+  }
+  #monitorSection.active {
+    display: flex;
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="logo">
+      <div class="logo-icon">🫁</div>
+      <div>
+        <div class="logo-text">BreathGuard</div>
+        <span class="logo-sub">COMP4531 · HKUST</span>
+      </div>
+    </div>
+    <div class="status-pill" id="statusPill">
+      <div class="status-dot" id="statusDot"></div>
+      <span id="statusText">Disconnected</span>
+    </div>
+  </header>
+
+  <div class="scroll-body">
+
+    <div class="alert-banner" id="alertBanner">
+      <div class="alert-icon" id="alertIcon">💤</div>
+      <div class="alert-content">
+        <div class="alert-title" id="alertTitle">Ready to Monitor</div>
+        <div class="alert-sub" id="alertSub">Connect your BreathGuard device to begin</div>
+      </div>
+    </div>
+
+    <div class="connect-panel" id="connectPanel">
+      <h3>Device Setup</h3>
+      <div class="group-select-row">
+        <label>Group ID</label>
+        <input type="number" id="groupIdInput" min="1" max="30" value="29" style="max-width:90px">
+      </div>
+      <div class="group-select-row">
+        <label>BLE Name</label>
+        <input type="text" id="deviceNamePreview" readonly style="color:var(--teal);font-size:12px">
+      </div>
+      <button class="btn btn-primary" id="connectBtn" onclick="connectDevice()">
+        Scan &amp; Connect
+      </button>
+      <div class="notif-row" style="margin-top:14px">
+        <span>🔔 Notifications</span>
+        <span class="notif-status notif-default" id="notifStatus" onclick="requestNotifPermission()">Tap to enable</span>
+      </div>
+    </div>
+
+    <div id="monitorSection">
+
+      <div class="section-label">Live Readings</div>
+
+      <div class="metric-row">
+        <div class="metric-card" id="bpmCard">
+          <div class="metric-label">Resp. Rate</div>
+          <div class="metric-value" id="bpmVal">—</div>
+          <div class="metric-unit">breaths / min</div>
+          <span class="metric-badge badge-normal" id="bpmBadge">NORMAL</span>
+        </div>
+        <div class="metric-card" id="silenceCard">
+          <div class="metric-label">Breath Pause</div>
+          <div class="metric-value" id="silenceVal">0.0</div>
+          <div class="metric-unit">seconds</div>
+          <span class="metric-badge badge-normal" id="silenceBadge">OK</span>
+          <div class="apnea-timer-wrap" style="margin-top:10px">
+            <div class="apnea-bar-bg"><div class="apnea-bar-fill" id="apneaBarFill"></div></div>
+            <div class="apnea-timer-val" id="apneaBarLabel">0s</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="wave-card">
+        <div class="wave-header">
+          <span class="wave-title">Respiration Waveform</span>
+          <span class="wave-scale" id="waveScale">IMU bandpass 0.1–0.6 Hz</span>
+        </div>
+        <div class="wave-canvas-wrap">
+          <canvas id="waveCanvas"></canvas>
+          <div class="empty-wave" id="waveEmpty">
+            <svg width="32" height="24" viewBox="0 0 32 24" fill="none">
+              <path d="M0 12 Q4 12 6 4 Q8 -4 10 12 Q12 28 14 12 Q16 -4 18 12 Q20 28 22 12 Q24 -4 26 12 Q28 28 32 12" stroke="#7a9eb5" stroke-width="1.5" fill="none"/>
+            </svg>
+            Waiting for data…
+          </div>
+        </div>
+      </div>
+
+      <div class="metric-row">
+        <div class="metric-card">
+          <div class="metric-label">Signal Amplitude</div>
+          <div class="metric-value" id="sigQualVal">—</div>
+          <div class="metric-unit">peak-to-peak</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Audio Energy</div>
+          <div class="metric-value" id="snoreVal">—</div>
+          <div class="metric-unit">snore index</div>
+          <div class="snore-bar-wrap">
+            <div class="snore-bar-bg"><div class="snore-bar-fill" id="snoreBarFill"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Body position from IMU -->
+      <div class="position-card">
+        <div class="position-icon" id="posIcon">🧍</div>
+        <div>
+          <div class="position-label">Body Position</div>
+          <div class="position-value" id="posValue">—</div>
+        </div>
+      </div>
+
+      <div class="section-label">Session Statistics</div>
+      <div class="stats-row">
+        <div class="stat-cell">
+          <div class="stat-val" id="statEvents">0</div>
+          <div class="stat-lbl">Apnea Events</div>
+        </div>
+        <div class="stat-cell">
+          <div class="stat-val" id="statAvgBpm">—</div>
+          <div class="stat-lbl">Avg BPM</div>
+        </div>
+        <div class="stat-cell">
+          <div class="stat-val" id="statDuration">0:00</div>
+          <div class="stat-lbl">Duration</div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="section-label">System Log</div>
+    <div class="log-card">
+      <div class="log-header">
+        <span class="log-title">Console</span>
+        <button class="btn btn-sm btn-danger" onclick="clearLog()">Clear</button>
+      </div>
+      <div id="logBox"></div>
+    </div>
+
+  </div>
+
+  <div class="bottom-bar" id="bottomBar">
+    <button class="btn btn-primary" id="startBtn" onclick="startMonitoring()" disabled style="flex:2">
+      ▶ Start Monitoring
+    </button>
+    <button class="btn btn-danger btn-sm" id="disconnectBtn" onclick="disconnectDevice()" disabled style="flex:1">
+      Disconnect
+    </button>
+  </div>
+</div>
+
+<script>
+// ============================================================
+//  BLE UUIDs — MUST match firmware code.py exactly
+//  Firmware uses: xx50 (service), xx51 (audio), xx52 (imu), xx53 (control)
+// ============================================================
+let GROUP_ID = 29;
+let SERVICE_UUID, AUDIO_CHAR, IMU_CHAR, CTRL_CHAR;
+
+function computeUUIDs(gid) {
+  const h = gid.toString(16).padStart(2, '0');
+  // These match the firmware's UUIDs exactly
+  SERVICE_UUID = `13172b58-${h}50-4150-b42d-22f30b0a0499`;
+  AUDIO_CHAR   = `13172b58-${h}51-4150-b42d-22f30b0a0499`;
+  IMU_CHAR     = `13172b58-${h}52-4150-b42d-22f30b0a0499`;
+  CTRL_CHAR    = `13172b58-${h}53-4150-b42d-22f30b0a0499`;
+}
+computeUUIDs(GROUP_ID);
+
+// ── Group ID input ──
+const groupInput = document.getElementById('groupIdInput');
+const devicePreview = document.getElementById('deviceNamePreview');
+function updatePreview() {
+  const g = parseInt(groupInput.value) || 1;
+  GROUP_ID = g;
+  computeUUIDs(g);
+  devicePreview.value = `BreathGuard_G${g}`;   // FIX: matches firmware ble.name
+}
+groupInput.addEventListener('input', updatePreview);
+updatePreview();
+
+// ============================================================
+//  BLE State
+// ============================================================
+let bleDevice = null, bleServer = null;
+let imuChar = null, ctrlChar = null, audioChar = null;
+let isMonitoring = false;
+let sessionStart = null;
+let sessionTimer = null;
+
+// ============================================================
+//  Signal Processing — IMU-based breathing detection
+// ============================================================
+const IMU_RATE = 2.3;         // firmware sends IMU at ~2.3 Hz (v2)
+const AUDIO_RATE = 8000;
+const WAVE_HISTORY = 200;     // ~90 seconds at 2.3 Hz
+const APNEA_THRESHOLD_S = 10;
+
+// IIR Bandpass (0.1–0.6 Hz) — identical to Python receiver
+let hp_prev_x = 0, hp_prev_y = 0, lp_prev = 0;
+let lastImuTime = 0;
+
+function bandpass(x) {
+  const now = performance.now() / 1000;
+  const dt = lastImuTime > 0 ? Math.min(now - lastImuTime, 2.0) : 0.4;
+  lastImuTime = now;
+  if (dt <= 0) return 0;
+  // High-pass: cutoff 0.1 Hz — removes gravity and slow drift
+  const hp_a = 1.0 / (1.0 + 6.2832 * 0.1 * dt);
+  const hp = hp_a * (hp_prev_y + x - hp_prev_x);
+  hp_prev_x = x;
+  hp_prev_y = hp;
+  // Low-pass: cutoff 0.6 Hz — removes jitter and motion noise
+  const lp_a = 6.2832 * 0.6 * dt / (1.0 + 6.2832 * 0.6 * dt);
+  const lp = lp_a * hp + (1.0 - lp_a) * lp_prev;
+  lp_prev = lp;
+  return lp;
+}
+
+function combineAxes(ax, ay, az) {
+  return 1.0 * az + 0.3 * ay + 0.3 * ax;
+}
+
+function classifyPosition(ax, ay, az) {
+  const g = 9.81;
+  if (az > 0.7 * g)  return { label: 'Supine (on back)', icon: '🛌' };
+  if (az < -0.7 * g) return { label: 'Prone (face down)', icon: '🙇' };
+  if (ay > 0.7 * g)  return { label: 'Left side', icon: '⬅️' };
+  if (ay < -0.7 * g) return { label: 'Right side', icon: '➡️' };
+  return { label: 'Upright', icon: '🧍' };
+}
+
+// Rolling buffers
+let waveBuffer = new Array(WAVE_HISTORY).fill(0);
+let bpmBuffer  = [];
+let lastPeakTime = Date.now();
+let silenceSec = 0;
+let peakDetectBuf = [];
+let sampleCount = 0;
+let currentBpm = 0;
+let bpmHistory = [];
+let apneaEventCount = 0;
+let lastApneaTime = 0;
+let snoreEnergy = 0;
+let silenceTimer = null;
+
+// ============================================================
+//  BLE Connect
+// ============================================================
+async function connectDevice() {
+  if (!navigator.bluetooth) {
+    log('Web Bluetooth not supported. Use Chrome on Android/desktop.', 'err');
+    return;
+  }
+  const btn = document.getElementById('connectBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Scanning…';
+  log(`Scanning for BreathGuard_G${GROUP_ID}…`, 'info');
+
+  try {
+    bleDevice = await navigator.bluetooth.requestDevice({
+      filters: [{ name: `BreathGuard_G${GROUP_ID}` }],  // FIX: matches firmware name
+      optionalServices: [SERVICE_UUID]
+    });
+    bleDevice.addEventListener('gattserverdisconnected', onDisconnect);
+
+    log('Device found. Connecting…', 'info');
+    bleServer = await bleDevice.gatt.connect();
+    const svc = await bleServer.getPrimaryService(SERVICE_UUID);
+
+    // FIX: use correct characteristic UUIDs (xx52 for IMU, xx53 for control)
+    imuChar  = await svc.getCharacteristic(IMU_CHAR);
+    ctrlChar = await svc.getCharacteristic(CTRL_CHAR);
+    log('IMU + Control characteristics: OK', 'ok');
+
+    try {
+      audioChar = await svc.getCharacteristic(AUDIO_CHAR);
+      await audioChar.startNotifications();
+      audioChar.addEventListener('characteristicvaluechanged', onAudioData);
+      log('Audio characteristic: OK', 'ok');
+    } catch(e) {
+      log('Audio characteristic: not available (snore detection disabled)', 'warn');
+    }
+
+    onConnected();
+  } catch(e) {
+    log(`Connection failed: ${e.message}`, 'err');
+    btn.disabled = false;
+    btn.innerHTML = 'Scan &amp; Connect';
+  }
+}
+
+function onConnected() {
+  log(`Connected to BreathGuard_G${GROUP_ID}`, 'ok');
+  setStatus(true);
+  document.getElementById('connectPanel').style.display = 'none';
+  document.getElementById('monitorSection').classList.add('active');
+  document.getElementById('startBtn').disabled = false;
+  document.getElementById('disconnectBtn').disabled = false;
+  setAlert('normal', '🟢', 'Device Connected', 'Press Start Monitoring to begin');
+}
+
+async function disconnectDevice() {
+  if (isMonitoring) await stopMonitoring();
+  if (bleDevice && bleDevice.gatt.connected) bleDevice.gatt.disconnect();
+  onDisconnect();
+}
+
+function onDisconnect() {
+  log('Disconnected.', 'warn');
+  isMonitoring = false;
+  bleDevice = null; bleServer = null; imuChar = null; ctrlChar = null; audioChar = null;
+  setStatus(false);
+  document.getElementById('connectPanel').style.display = 'block';
+  document.getElementById('monitorSection').classList.remove('active');
+  document.getElementById('connectBtn').disabled = false;
+  document.getElementById('connectBtn').innerHTML = 'Scan &amp; Connect';
+  document.getElementById('startBtn').disabled = true;
+  document.getElementById('disconnectBtn').disabled = true;
+  clearInterval(sessionTimer);
+  clearInterval(silenceTimer);
+  setAlert('idle', '💤', 'Ready to Monitor', 'Connect your BreathGuard device to begin');
+}
+
+// ============================================================
+//  Monitoring Start / Stop
+// ============================================================
+async function startMonitoring() {
+  if (!imuChar) return;
+  resetSignalState();
+  isMonitoring = true;
+  sessionStart = Date.now();
+  sessionTimer = setInterval(updateSessionDuration, 1000);
+  // Update silence timer at 4 Hz for smooth UI
+  silenceTimer = setInterval(updateSilenceTimer, 250);
+
+  await imuChar.startNotifications();
+  imuChar.addEventListener('characteristicvaluechanged', onImuData);
+
+  try {
+    const enc = new TextEncoder().encode('START');
+    await ctrlChar.writeValueWithoutResponse(enc);
+    log('Sent START command', 'ok');
+  } catch(e) { log('Control write failed (continuing)', 'warn'); }
+
+  document.getElementById('startBtn').onclick = stopMonitoring;
+  document.getElementById('startBtn').innerHTML = '⏹ Stop Monitoring';
+  document.getElementById('startBtn').className = 'btn btn-danger';
+  document.getElementById('waveEmpty').style.display = 'none';
+  setAlert('normal', '🫁', 'Monitoring Active', 'Breathing data is being captured');
+  log('Monitoring started — breathe normally', 'ok');
+
+  // Keep screen on during monitoring
+  await requestWakeLock();
+
+  // Remind about notifications
+  if ('Notification' in window && Notification.permission === 'default') {
+    await requestNotifPermission();
+  }
+}
+
+async function stopMonitoring() {
+  if (!isMonitoring) return;
+  isMonitoring = false;
+  clearInterval(sessionTimer);
+  clearInterval(silenceTimer);
+
+  try { await imuChar.stopNotifications(); } catch(e) {}
+  imuChar.removeEventListener('characteristicvaluechanged', onImuData);
+  try {
+    const enc = new TextEncoder().encode('STOP');
+    await ctrlChar.writeValueWithoutResponse(enc);
+  } catch(e) {}
+
+  document.getElementById('startBtn').onclick = startMonitoring;
+  document.getElementById('startBtn').innerHTML = '▶ Start Monitoring';
+  document.getElementById('startBtn').className = 'btn btn-primary';
+  setAlert('normal', '✅', 'Session Complete', `${apneaEventCount} apnea event(s) detected`);
+  log(`Session ended: ${apneaEventCount} events, avg BPM ${document.getElementById('statAvgBpm').textContent}`, 'info');
+  releaseWakeLock();
+}
+
+function resetSignalState() {
+  hp_prev_x = hp_prev_y = lp_prev = 0;
+  lastImuTime = 0;
+  waveBuffer = new Array(WAVE_HISTORY).fill(0);
+  bpmBuffer = []; peakDetectBuf = [];
+  lastPeakTime = Date.now();
+  silenceSec = 0; sampleCount = 0;
+  currentBpm = 0; bpmHistory = [];
+  apneaEventCount = 0; lastApneaTime = 0;
+  document.getElementById('statEvents').textContent = '0';
+  document.getElementById('statAvgBpm').textContent = '—';
+  document.getElementById('statDuration').textContent = '0:00';
+}
+
+// ============================================================
+//  IMU Data Handler
+//  FIX: firmware sends 12 bytes (3x float32), not 24
+// ============================================================
+function onImuData(event) {
+  const dv = event.target.value;
+  if (dv.byteLength < 12) return;  // FIX: was 24, firmware sends 12 bytes
+
+  const ax = dv.getFloat32(0, true);
+  const ay = dv.getFloat32(4, true);
+  const az = dv.getFloat32(8, true);
+
+  // Body position
+  const pos = classifyPosition(ax, ay, az);
+  document.getElementById('posIcon').textContent = pos.icon;
+  document.getElementById('posValue').textContent = pos.label;
+
+  // Breathing waveform from chest motion
+  const raw = combineAxes(ax, ay, az);
+  const filtered = bandpass(raw);
+
+  waveBuffer.push(filtered);
+  if (waveBuffer.length > WAVE_HISTORY) waveBuffer.shift();
+
+  // Peak detection (3-point)
+  peakDetectBuf.push(filtered);
+  if (peakDetectBuf.length > 3) peakDetectBuf.shift();
+  if (peakDetectBuf.length === 3) {
+    const [a, b, c] = peakDetectBuf;
+    if (b > a && b > c && b > 0.005) {
+      const now = Date.now();
+      // Skip first 10 seconds (warmup — filter needs to settle)
+      if (sessionStart && (now - sessionStart) < 10000) return;
+      const dt = (now - lastPeakTime) / 1000;
+      if (dt > 1.5) { // min 1.5s between breaths (~40 bpm max)
+        lastPeakTime = now;
+        bpmBuffer.push(now);
+        const cutoff = now - 60000; // 60s window
+        bpmBuffer = bpmBuffer.filter(t => t > cutoff);
+        if (bpmBuffer.length >= 2) {
+          const span = (bpmBuffer[bpmBuffer.length-1] - bpmBuffer[0]) / 1000;
+          currentBpm = Math.round((bpmBuffer.length - 1) / span * 60);
+          currentBpm = Math.max(4, Math.min(40, currentBpm));
+        }
+      }
+    }
+  }
+
+  sampleCount++;
+  updateMetricsDisplay(filtered);
+}
+
+// ============================================================
+//  Audio Data Handler — for snore energy display
+// ============================================================
+function onAudioData(event) {
+  const buf = event.target.value;
+  const bytes = new Uint8Array(buf.buffer);
+  let energy = 0;
+  for (let i = 0; i < bytes.length; i++) {
+    const s = bytes[i] - 128; // unsigned 8-bit to signed
+    energy += s * s;
+  }
+  snoreEnergy = Math.sqrt(energy / Math.max(1, bytes.length));
+  const pct = Math.min(100, snoreEnergy * 2.5);
+  document.getElementById('snoreBarFill').style.width = pct + '%';
+  document.getElementById('snoreVal').textContent = snoreEnergy.toFixed(1);
+}
+
+// ============================================================
+//  Silence / Apnea Timer — runs at 4 Hz via setInterval
+// ============================================================
+function updateSilenceTimer() {
+  if (!isMonitoring) return;
+  const now = Date.now();
+  silenceSec = (now - lastPeakTime) / 1000;
+  const pct = Math.min(100, (silenceSec / APNEA_THRESHOLD_S) * 100);
+
+  document.getElementById('silenceVal').textContent = silenceSec.toFixed(1);
+  document.getElementById('apneaBarLabel').textContent = silenceSec.toFixed(0) + 's';
+
+  const fill = document.getElementById('apneaBarFill');
+  fill.style.width = pct + '%';
+  fill.className = 'apnea-bar-fill' +
+    (silenceSec > 7 ? ' danger' : silenceSec > 4 ? ' warning' : '');
+
+  const badge = document.getElementById('silenceBadge');
+  if (silenceSec >= APNEA_THRESHOLD_S) {
+    const sinceLastAlert = now - lastApneaTime;
+    if (sinceLastAlert > 15000) {
+      triggerApneaAlert();
+      lastApneaTime = now;
+      apneaEventCount++;
+      document.getElementById('statEvents').textContent = apneaEventCount;
+    }
+    badge.textContent = 'APNEA';
+    badge.className = 'metric-badge badge-danger';
+    document.getElementById('silenceCard').classList.add('danger');
+  } else if (silenceSec > 7) {
+    badge.textContent = 'WARNING';
+    badge.className = 'metric-badge badge-warn';
+    document.getElementById('silenceCard').classList.remove('danger');
+  } else {
+    badge.textContent = 'OK';
+    badge.className = 'metric-badge badge-normal';
+    document.getElementById('silenceCard').classList.remove('danger');
+  }
+}
+
+// ============================================================
+//  APNEA ALERT — notification + vibration + alarm sound
+// ============================================================
+let alarmAudioCtx = null;
+
+function playAlarmSound() {
+  try {
+    if (!alarmAudioCtx) alarmAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const ctx = alarmAudioCtx;
+    // SOS-like alarm: 3 short, 3 long, 3 short beeps
+    const pattern = [
+      [800, 0.15], [0, 0.08], [800, 0.15], [0, 0.08], [800, 0.15], [0, 0.2],
+      [600, 0.3],  [0, 0.1],  [600, 0.3],  [0, 0.1],  [600, 0.3],  [0, 0.2],
+      [800, 0.15], [0, 0.08], [800, 0.15], [0, 0.08], [800, 0.15]
+    ];
+    let t = ctx.currentTime;
+    for (const [freq, dur] of pattern) {
+      if (freq > 0) {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.frequency.value = freq;
+        osc.type = 'square';
+        gain.gain.value = 0.3;
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(t);
+        osc.stop(t + dur);
+      }
+      t += dur;
+    }
+  } catch(e) { /* audio not available */ }
+}
+
+function sendNotification(title, body) {
+  // Method 1: via service worker (works when screen is off)
+  if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+    navigator.serviceWorker.controller.postMessage({
+      type: 'APNEA_ALERT',
+      body: body
+    });
+    return;
+  }
+  // Method 2: direct Notification API (fallback)
+  if ('Notification' in window && Notification.permission === 'granted') {
+    try {
+      new Notification(title, {
+        body: body,
+        icon: '🚨',
+        vibrate: [500, 150, 500, 150, 500],
+        requireInteraction: true,
+        tag: 'apnea-alert',
+        renotify: true
+      });
+    } catch(e) { /* some browsers block direct new Notification */ }
+  }
+}
+
+function triggerApneaAlert() {
+  const dur = silenceSec.toFixed(0);
+  log(`APNEA EVENT — no breath detected for ${dur}s`, 'err');
+  setAlert('apnea', '🚨', 'Apnea Detected!', `No breathing detected for ${dur} seconds`);
+
+  // 1. Vibrate phone
+  if ('vibrate' in navigator) {
+    navigator.vibrate([500, 150, 500, 150, 500, 300, 200, 100, 200, 100, 200, 300, 500, 150, 500, 150, 500]);
+  }
+
+  // 2. Play alarm sound
+  playAlarmSound();
+
+  // 3. Send push notification (works even with screen off)
+  sendNotification(
+    '🚨 BreathGuard: Apnea Detected!',
+    `No breathing detected for ${dur}+ seconds. Check on the patient immediately.`
+  );
+
+  // Auto-clear alert after 8s if breathing resumes
+  setTimeout(() => {
+    if ((Date.now() - lastPeakTime) / 1000 < APNEA_THRESHOLD_S) {
+      setAlert('normal', '🫁', 'Breathing Resumed', 'Monitoring active');
+    }
+  }, 8000);
+}
+
+// ============================================================
+//  Display Updates
+// ============================================================
+function updateMetricsDisplay(lastFiltered) {
+  const bpmEl = document.getElementById('bpmVal');
+  bpmEl.textContent = currentBpm > 0 ? currentBpm : '—';
+
+  const badge = document.getElementById('bpmBadge');
+  const card = document.getElementById('bpmCard');
+  if (currentBpm > 0) {
+    if (currentBpm < 8 || currentBpm > 30) {
+      badge.textContent = 'ABNORMAL'; badge.className = 'metric-badge badge-danger';
+      bpmEl.classList.add('danger'); card.classList.add('danger');
+    } else if (currentBpm < 12 || currentBpm > 25) {
+      badge.textContent = 'BORDERLINE'; badge.className = 'metric-badge badge-warn';
+      bpmEl.classList.remove('danger'); card.classList.remove('danger');
+    } else {
+      badge.textContent = 'NORMAL'; badge.className = 'metric-badge badge-normal';
+      bpmEl.classList.remove('danger'); card.classList.remove('danger');
+    }
+  }
+
+  if (currentBpm > 0) {
+    bpmHistory.push(currentBpm);
+    if (bpmHistory.length > 120) bpmHistory.shift();
+    const avg = Math.round(bpmHistory.reduce((a,b)=>a+b,0) / bpmHistory.length);
+    document.getElementById('statAvgBpm').textContent = avg;
+  }
+
+  const amp = Math.max(...waveBuffer) - Math.min(...waveBuffer);
+  document.getElementById('sigQualVal').textContent = amp.toFixed(3);
+
+  drawWaveform();
+}
+
+// ============================================================
+//  Waveform Canvas
+// ============================================================
+function drawWaveform() {
+  const canvas = document.getElementById('waveCanvas');
+  const wrap = canvas.parentElement;
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = wrap.clientWidth * dpr;
+  canvas.height = wrap.clientHeight * dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  const w = wrap.clientWidth, h = wrap.clientHeight;
+
+  ctx.clearRect(0, 0, w, h);
+
+  // Grid
+  ctx.strokeStyle = 'rgba(58,85,112,0.4)';
+  ctx.lineWidth = 0.5;
+  for (let i = 1; i < 4; i++) {
+    const y = (h / 4) * i;
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+  }
+  for (let i = 1; i < 6; i++) {
+    const x = (w / 6) * i;
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+  }
+
+  if (waveBuffer.every(v => v === 0)) return;
+
+  const minV = Math.min(...waveBuffer);
+  const maxV = Math.max(...waveBuffer);
+  const range = Math.max(maxV - minV, 0.001);
+  const pad = 12;
+
+  // Glow line
+  ctx.shadowColor = 'rgba(0,212,200,0.6)';
+  ctx.shadowBlur = 8;
+  ctx.strokeStyle = 'rgba(0,212,200,0.9)';
+  ctx.lineWidth = 2;
+  ctx.lineJoin = 'round';
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  waveBuffer.forEach((v, i) => {
+    const x = (i / (waveBuffer.length - 1)) * w;
+    const y = pad + ((maxV - v) / range) * (h - pad * 2);
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+
+  // Fill under curve
+  ctx.shadowBlur = 0;
+  ctx.beginPath();
+  waveBuffer.forEach((v, i) => {
+    const x = (i / (waveBuffer.length - 1)) * w;
+    const y = pad + ((maxV - v) / range) * (h - pad * 2);
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  });
+  ctx.lineTo(w, h); ctx.lineTo(0, h); ctx.closePath();
+  const grad = ctx.createLinearGradient(0, 0, 0, h);
+  grad.addColorStop(0, 'rgba(0,212,200,0.22)');
+  grad.addColorStop(1, 'rgba(0,212,200,0.00)');
+  ctx.fillStyle = grad;
+  ctx.fill();
+}
+
+// ============================================================
+//  Session Duration
+// ============================================================
+function updateSessionDuration() {
+  if (!sessionStart) return;
+  const sec = Math.floor((Date.now() - sessionStart) / 1000);
+  const m = Math.floor(sec / 60), s = sec % 60;
+  document.getElementById('statDuration').textContent =
+    `${m}:${s.toString().padStart(2,'0')}`;
+}
+
+// ============================================================
+//  UI Helpers
+// ============================================================
+function setStatus(connected) {
+  const pill = document.getElementById('statusPill');
+  const txt  = document.getElementById('statusText');
+  pill.className = 'status-pill' + (connected ? ' connected' : '');
+  txt.textContent = connected ? 'Connected' : 'Disconnected';
+}
+
+function setAlert(type, icon, title, sub) {
+  const banner = document.getElementById('alertBanner');
+  banner.className = 'alert-banner ' + (type === 'apnea' ? 'apnea' : type === 'normal' ? 'normal' : '');
+  document.getElementById('alertIcon').textContent = icon;
+  document.getElementById('alertTitle').textContent = title;
+  document.getElementById('alertSub').textContent = sub;
+}
+
+const logBox = document.getElementById('logBox');
+function log(msg, type = 'info') {
+  const now = new Date();
+  const ts = `${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}:${now.getSeconds().toString().padStart(2,'0')}`;
+  const div = document.createElement('div');
+  div.className = `log-${type}`;
+  div.textContent = `[${ts}] ${msg}`;
+  logBox.appendChild(div);
+  logBox.scrollTop = logBox.scrollHeight;
+  while (logBox.children.length > 80) logBox.removeChild(logBox.firstChild);
+}
+function clearLog() { logBox.innerHTML = ''; }
+
+// ============================================================
+//  Notification Permission
+// ============================================================
+function updateNotifUI() {
+  const el = document.getElementById('notifStatus');
+  if (!('Notification' in window)) {
+    el.textContent = 'Not supported';
+    el.className = 'notif-status notif-denied';
+    return;
+  }
+  if (Notification.permission === 'granted') {
+    el.textContent = 'Enabled ✓';
+    el.className = 'notif-status notif-granted';
+    el.onclick = null;
+  } else if (Notification.permission === 'denied') {
+    el.textContent = 'Blocked ✗';
+    el.className = 'notif-status notif-denied';
+    el.onclick = null;
+  } else {
+    el.textContent = 'Tap to enable';
+    el.className = 'notif-status notif-default';
+    el.onclick = requestNotifPermission;
+  }
+}
+
+async function requestNotifPermission() {
+  if (!('Notification' in window)) return;
+  const perm = await Notification.requestPermission();
+  log('Notification permission: ' + perm, perm === 'granted' ? 'ok' : 'warn');
+  updateNotifUI();
+}
+
+// ============================================================
+//  Wake Lock — keeps phone awake during monitoring
+// ============================================================
+let wakeLock = null;
+
+async function requestWakeLock() {
+  try {
+    if ('wakeLock' in navigator) {
+      wakeLock = await navigator.wakeLock.request('screen');
+      log('Wake lock acquired — screen stays on', 'ok');
+      wakeLock.addEventListener('release', () => {
+        log('Wake lock released', 'info');
+      });
+    }
+  } catch(e) {
+    log('Wake lock not available: ' + e.message, 'warn');
+  }
+}
+
+function releaseWakeLock() {
+  if (wakeLock) {
+    wakeLock.release();
+    wakeLock = null;
+  }
+}
+
+// Re-acquire wake lock when page becomes visible again
+document.addEventListener('visibilitychange', async () => {
+  if (document.visibilityState === 'visible' && isMonitoring && !wakeLock) {
+    await requestWakeLock();
+  }
+});
+
+// ============================================================
+//  Service Worker + PWA Init
+// ============================================================
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js')
+    .then(reg => {
+      log('PWA service worker registered', 'ok');
+      // Check for updates
+      reg.addEventListener('updatefound', () => {
+        log('App update available', 'info');
+      });
+    })
+    .catch(err => log('SW registration failed: ' + err.message, 'warn'));
+}
+
+// ============================================================
+//  Init
+// ============================================================
+log('BreathGuard PWA loaded', 'ok');
+log('Web Bluetooth: ' + (navigator.bluetooth ? 'available' : 'NOT supported — use Chrome'), navigator.bluetooth ? 'ok' : 'err');
+log('Vibration API: ' + ('vibrate' in navigator ? 'available' : 'not available'), 'vibrate' in navigator ? 'ok' : 'warn');
+log('Notifications: ' + ('Notification' in window ? Notification.permission : 'not supported'), 'info');
+log('Wake Lock API: ' + ('wakeLock' in navigator ? 'available' : 'not available'), 'wakeLock' in navigator ? 'ok' : 'warn');
+updateNotifUI();
+
+window.addEventListener('resize', () => { if (isMonitoring) drawWaveform(); });
+
+// Prompt install on mobile
+let deferredPrompt;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  log('App is installable — use browser menu to add to home screen', 'ok');
+});
+</script>
+</body>
+</html>
